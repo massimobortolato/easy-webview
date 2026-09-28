@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14.0)
 project(easy-webview VERSION 0.1.0 LANGUAGES C CXX)
 
-add_library(easy-webview STATIC webview.cpp webview.h)
+add_library(easy-webview STATIC easy_webview.cpp easy_webview.h)
 add_library(easy-webview::easy-webview ALIAS easy-webview)
 
 target_include_directories(easy-webview PUBLIC

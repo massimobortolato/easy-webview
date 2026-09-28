@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kiosk</title>
+    <link href="vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at top left, #1e3a5f, #0d1117 60%);
+        }
+
+        .card {
+            backdrop-filter: blur(8px);
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-lg {
+            min-width: 160px;
+            transition: transform 0.1s ease;
+        }
+
+        .btn-lg:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+
+<body class="d-flex align-items-center justify-content-center p-3">
+    <main class="card shadow-lg rounded-4 p-4 p-md-5 text-center" style="max-width: 520px; width: 100%;">
+        <h1 class="h3 fw-bold mb-2">Easy Webview</h1>
+        <p class="text-body-secondary mb-4">Choose an action to get started.</p>
+
+        <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+            <button id="btn-get" type="button" class="btn btn-primary btn-lg rounded-pill">
+                GET /api/data
+            </button>
+            <button id="btn-post" type="button" class="btn btn-outline-light btn-lg rounded-pill">
+                POST /ciao
+            </button>
+        </div>
+
+        <div id="output" class="alert alert-info mt-4 mb-0 d-none" role="status"></div>
+    </main>
+
+    <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function show(message, type = 'info') {
+            output.className = `alert alert-${type} mt-4 mb-0`;
+            output.textContent = message;
+        }
+
+        async function call(method, url) {
+            try {
+                const res = await fetch(url, { method });
+                const text = await res.text();
+                show(`${method} ${url} → ${res.status}${text ? ': ' + text : ' (empty body)'}`,
+                    res.ok ? 'success' : 'warning');
+            } catch (err) {
+                show(`Request failed: ${err.message}`, 'danger');
+            }
+        }
+
+        document.getElementById('btn-get').addEventListener('click', () => call('GET', '/api/data'));
+        document.getElementById('btn-post').addEventListener('click', () => call('POST', '/ciao'));
+    </script>
+</body>
+
+</html>

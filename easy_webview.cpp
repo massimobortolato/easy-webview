@@ -70532,7 +70532,7 @@ WEBVIEW_API const webview_version_info_t *webview_version(void) {
 
 // file end: src/webview2.cc
 
-#include "webview.h"
+#include "easy_webview.h"
 #include <filesystem>
 #include <optional>
 #include <iostream>
@@ -70543,7 +70543,7 @@ namespace fs = std::filesystem;
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
-using namespace webview;
+using namespace easy_webview;
 
 namespace
 {
@@ -70752,7 +70752,7 @@ namespace
                 path += "index.html";
             fs::path file = fs::weakly_canonical(static_root / fs::path(path.substr(1)));
             auto rel = file.lexically_relative(static_root);
-            bool inside = /*!rel.empty() &&*/ *rel.begin() != "..";
+            bool inside = !rel.empty() && *rel.begin() != "..";
 
             std::cout << "Serving static file: " << file << " " << rel << " Inside: " << inside << std::endl;
 
@@ -70795,7 +70795,7 @@ namespace
         if (path.empty())
             path = "/";
 
-        std::cout << "Request URI: " << uri << " Path: " << path << " Method: " << method << std::endl;
+        // std::cout << "Request URI: " << uri << " Path: " << path << " Method: " << method << std::endl;
 
         ComPtr<IStream> content;
         ComPtr<IStream> body;
@@ -70821,14 +70821,22 @@ namespace
     }
 }
 
-namespace webview
+namespace easy_webview
 {
     webview::webview()
     {
         auto w = new webview_data();
-        w->w->set_title("My Webview");
-        w->w->set_size(800, 600, WEBVIEW_HINT_NONE);
         _handle = w;
+    }
+
+    void webview::set_title(const std::string &title)
+    {
+        static_cast<webview_data *>(_handle)->w->set_title(title);
+    }
+
+    void webview::set_size(int width, int height)
+    {
+        static_cast<webview_data *>(_handle)->w->set_size(width, height, WEBVIEW_HINT_NONE);
     }
 
     webview::~webview()
@@ -70902,6 +70910,6 @@ namespace webview
     }
     void webview::serve_static(const std::filesystem::path &root)
     {
-        static_cast<webview_data *>(_handle)->static_root = root;
+        static_cast<webview_data *>(_handle)->static_root = std::filesystem::weakly_canonical(root);
     }
 }

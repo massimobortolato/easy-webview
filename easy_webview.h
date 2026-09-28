@@ -5,7 +5,7 @@
 #include <string>
 #include <filesystem>
 
-namespace webview
+namespace easy_webview
 {
 
     struct response
@@ -33,6 +33,9 @@ namespace webview
     public:
         webview();
         ~webview();
+
+        void set_title(const std::string &title);
+        void set_size(int width, int height);
 
         void get(const std::string &pattern, handler fn);
         void post(const std::string &pattern, handler fn);
