@@ -1,18 +1,22 @@
 #include "easy_webview.h"
+#include <windows.h>
 
-int main()
+using easy_webview::handler;
+using easy_webview::request;
+using easy_webview::response;
+using easy_webview::webview;
+
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
+// int main()
 {
-    using easy_webview::request;
-    using easy_webview::response;
-    using easy_webview::webview;
+    webview w("WebView2 Example");
+    w.navigate("https://www.duckduckgo.com");
 
-    webview w;
-    w.set_title("Kiosk");
-    w.set_size(800, 600);
-    w.serve_static("static");
-    w.get("/api/data", [](const request &req)
-          { return response{200, "plain/text", "the data=Ciao!"}; });
-    w.post("/ciao", [](const request &req)
-          { return response{200, "text/html", "<h1>Ciao!</h1>"}; });
-    w.run();
+    webview w2("WebView2 Example 2");
+    w2.serve_static("static");
+    w2.get("/api/data", [](const request &req) { return response{200, "text/plain; charset=utf-8", "Here your data!"}; });
+    w2.post("/ciao", [](const request &req) { return response{200, "text/plain; charset=utf-8", "Ciao!"}; });
+
+    webview::run();
+    return 0;
 }

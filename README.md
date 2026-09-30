@@ -9,8 +9,7 @@ easy-webview opens a native window with an embedded [Microsoft Edge WebView2](ht
 
 int main()
 {
-    easy_webview::webview w;
-    w.set_title("Hello");
+    easy_webview::webview w("Hello");
     w.set_size(800, 600);
 
     w.serve_static("static");   // serves ./static/index.html at "/"
@@ -134,7 +133,6 @@ Routes are checked in the order they were registered, and the first match wins. 
 
 easy-webview builds on these projects:
 
-- [webview/webview](https://github.com/webview/webview) (MIT License, © Serge Zaitsev, Steffen André Langnes)
 - [Microsoft Edge WebView2 SDK](https://www.nuget.org/packages/Microsoft.Web.WebView2) headers
 - [Bootstrap](https://getbootstrap.com/) (used only by the example)
 
@@ -142,4 +140,4 @@ easy-webview builds on these projects:
 
 easy-webview is released under the [BSD 3-Clause License](LICENSE).
 
-It embeds third-party code that stays under its own license: webview (MIT) and the WebView2 SDK headers (BSD-style). The example also ships Bootstrap (MIT). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full texts.
+It embeds third-party code that stays under its own license: the WebView2 SDK headers (BSD-style). The example also ships Bootstrap (MIT). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full texts.
