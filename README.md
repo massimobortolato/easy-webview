@@ -2,7 +2,7 @@
 
 A small C++ library for building desktop apps with an HTML/JS front end and a C++ back end, with no local HTTP server and no open ports.
 
-easy-webview opens a native window with an embedded [Microsoft Edge WebView2](https://learn.microsoft.com/microsoft-edge/webview2/) browser. Requests from the page to `http://app.local/...` are intercepted inside the process and routed to your C++ handlers or to a folder of static files. You write the routes the way you would for a small web framework, and the front end uses plain `fetch()`.
+easy-webview opens a native window with an embedded [Microsoft Edge WebView2](https://learn.microsoft.com/microsoft-edge/webview2/) browser. Requests from the page to `http://app.example/...` are intercepted inside the process and routed to your C++ handlers or to a folder of static files. You write the routes the way you would for a small web framework, and the front end uses plain `fetch()`.
 
 ```cpp
 #include "easy_webview.h"
@@ -127,7 +127,7 @@ Routes are checked in the order they were registered, and the first match wins. 
 
 ## How it works
 
-`run()` points the WebView at `http://app.local/` and registers a WebView2 resource filter for `http://app.local/*`. Every matching request (page loads, `<script>`/`<link>` tags and `fetch()` calls) is handed to easy-webview. It parses the method, path, query and body, dispatches the request to your handler or the static file server, and returns the result as a WebView2 response. No network traffic is involved.
+`run()` points the WebView at `http://app.example/` and registers a WebView2 resource filter for `http://app.example/*`. Every matching request (page loads, `<script>`/`<link>` tags and `fetch()` calls) is handed to easy-webview. It parses the method, path, query and body, dispatches the request to your handler or the static file server, and returns the result as a WebView2 response. No network traffic is involved.
 
 ## Acknowledgements
 

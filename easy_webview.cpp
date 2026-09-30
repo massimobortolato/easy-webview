@@ -326,7 +326,7 @@ HRESULT handle_request(ICoreWebView2Environment *env, const std::string &url, co
     CoTaskMemFree(uri_raw);
     CoTaskMemFree(method_raw);
 
-    // "http://app.local/a/b.js?x=1#y" -> "/a/b.js"
+    // "http://app.example/a/b.js?x=1#y" -> "/a/b.js"
     std::string path = uri.substr(url.size());
     size_t cut = path.find_first_of("?#");
     std::string query;
@@ -462,7 +462,7 @@ webview::webview(const std::string &title)
                                     .Get(),
                                 &token);
 
-                            const std::string local_url = "http://app.local";
+                            const std::string local_url = "http://app.example";
 
                             ComPtr<ICoreWebView2_2> webview2_2;
                             impl->webview.As(&webview2_2);
