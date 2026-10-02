@@ -22,10 +22,46 @@ typedef struct ew_file
 // The response starts as 200, "text/plain", empty body.
 typedef void (*ew_handler)(const ew_request *req, ew_response *res, void *user_data);
 
+// Values match easy_webview::permission.
+typedef enum ew_permission
+{
+    EW_PERMISSION_UNKNOWN,
+    EW_PERMISSION_MICROPHONE,
+    EW_PERMISSION_CAMERA,
+    EW_PERMISSION_GEOLOCATION,
+    EW_PERMISSION_NOTIFICATIONS,
+    EW_PERMISSION_OTHER_SENSORS,
+    EW_PERMISSION_CLIPBOARD_READ,
+    EW_PERMISSION_MULTIPLE_AUTOMATIC_DOWNLOADS,
+    EW_PERMISSION_FILE_READ_WRITE,
+    EW_PERMISSION_AUTOPLAY,
+    EW_PERMISSION_LOCAL_FONTS,
+    EW_PERMISSION_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
+    EW_PERMISSION_WINDOW_MANAGEMENT
+} ew_permission;
+
+// Values match easy_webview::permission_state.
+typedef enum ew_permission_state
+{
+    EW_PERMISSION_DENY,
+    EW_PERMISSION_ALLOW,
+    EW_PERMISSION_ASK // let WebView2 show its own prompt
+} ew_permission_state;
+
+typedef struct ew_permission_rule
+{
+    ew_permission kind;
+    ew_permission_state state;
+} ew_permission_rule;
+
 // --- Window ----------------------------------------------------------------
 ew_webview *ew_create(const char *title);
 // Like ew_create(); a nonzero debug enables the WebView2 developer tools.
 ew_webview *ew_create_debug(const char *title, int debug);
+// Like ew_create_debug(), with a permissions table (copied; may be NULL if count
+// is 0). It applies only to pages served from https://app.example; every other
+// page, and every kind not in the table, is denied.
+ew_webview *ew_create_with_permissions(const char *title, int debug, const ew_permission_rule *rules, size_t count);
 void ew_destroy(ew_webview *w);
 
 void ew_set_size(ew_webview *w, int width, int height);

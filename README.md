@@ -103,6 +103,34 @@ From the C API, use `ew_create_debug(title, debug)`, where a nonzero `debug` ena
 ew_webview *w = ew_create_debug("Hello", 1);   // developer tools enabled
 ```
 
+#### Permissions
+
+Permission requests from the page (camera, microphone, geolocation, notifications and so on) are **denied by default**. To grant some, pass a table as the third argument. Each entry maps a `permission` to `permission_state::allow`, `deny` or `ask` (show WebView2's own prompt):
+
+```cpp
+using easy_webview::permission;
+using easy_webview::permission_state;
+
+easy_webview::webview w("Hello", false, {
+    {permission::camera, permission_state::allow},
+    {permission::microphone, permission_state::ask},
+});
+```
+
+The table applies only to pages served from `https://app.example`, the app's own front end. Pages from any other site, for example after `navigate()` or a link, are always denied, so a grant can't leak to remote content. Kinds missing from the table are denied as well.
+
+Windows privacy settings still apply: if desktop apps aren't allowed to use the camera, `getUserMedia()` fails even when the table says `allow`.
+
+From the C API, use `ew_create_with_permissions`:
+
+```c
+ew_permission_rule rules[] = {
+    {EW_PERMISSION_CAMERA, EW_PERMISSION_ALLOW},
+    {EW_PERMISSION_MICROPHONE, EW_PERMISSION_ASK},
+};
+ew_webview *w = ew_create_with_permissions("Hello", 0, rules, 2);
+```
+
 | Method | Description |
 | --- | --- |
 | `set_title(const std::string&)` | Sets the window title. |

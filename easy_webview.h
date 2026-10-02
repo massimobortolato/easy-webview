@@ -25,9 +25,36 @@ struct request
 
 using handler = std::function<response(const request &)>;
 
+// Same order as COREWEBVIEW2_PERMISSION_KIND.
+enum class permission
+{
+    unknown,
+    microphone,
+    camera,
+    geolocation,
+    notifications,
+    other_sensors,
+    clipboard_read,
+    multiple_automatic_downloads,
+    file_read_write,
+    autoplay,
+    local_fonts,
+    midi_system_exclusive_messages,
+    window_management,
+};
+
+enum class permission_state
+{
+    deny,
+    allow,
+    ask, // let WebView2 show its own prompt
+};
+
 struct webview
 {
-    webview(const std::string &title, bool debug = false);
+    // `permissions` applies only to pages served from https://app.example; every
+    // other page, and every kind not in the table, is denied.
+    webview(const std::string &title, bool debug = false, const std::map<permission, permission_state> &permissions = {});
     ~webview();
 
     void set_size(int width, int height);

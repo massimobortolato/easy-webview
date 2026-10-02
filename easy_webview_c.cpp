@@ -46,10 +46,17 @@ extern "C"
 
 ew_webview *ew_create(const char *title) { return ew_create_debug(title, 0); }
 
-ew_webview *ew_create_debug(const char *title, int debug)
+ew_webview *ew_create_debug(const char *title, int debug) { return ew_create_with_permissions(title, debug, nullptr, 0); }
+
+ew_webview *ew_create_with_permissions(const char *title, int debug, const ew_permission_rule *rules, size_t count)
 {
+    std::map<easy_webview::permission, easy_webview::permission_state> permissions;
+    for (size_t i = 0; rules && i < count; ++i)
+        permissions[static_cast<easy_webview::permission>(rules[i].kind)] =
+            static_cast<easy_webview::permission_state>(rules[i].state);
+
     // Heap-allocated: easy_webview::webview registers its own address and must not move.
-    return reinterpret_cast<ew_webview *>(new easy_webview::webview(str(title), debug != 0));
+    return reinterpret_cast<ew_webview *>(new easy_webview::webview(str(title), debug != 0, permissions));
 }
 
 void ew_destroy(ew_webview *w) { delete cpp(w); }

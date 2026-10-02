@@ -16,6 +16,8 @@ using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
 using easy_webview::handler;
+using easy_webview::permission;
+using easy_webview::permission_state;
 using easy_webview::request;
 using easy_webview::response;
 using easy_webview::webview;
@@ -67,6 +69,7 @@ struct webview_impl
     std::vector<route> routes;
     std::filesystem::path static_root;
     std::map<std::string, std::string_view> static_files;
+    std::map<permission, permission_state> permissions;
     bool fullscreen = false;
     WINDOWPLACEMENT saved_placement = {sizeof(WINDOWPLACEMENT)};
 };
@@ -454,15 +457,49 @@ HRESULT on_request(ICoreWebView2Environment *env, const std::string &url, const 
         return E_FAIL;
     }
 }
+
+// Pages served by this window get the state from the permissions table;
+// any other page, and any kind missing from the table, is denied.
+HRESULT on_permission(const std::string &local_url, const std::map<permission, permission_state> &permissions,
+                      ICoreWebView2PermissionRequestedEventArgs *args)
+{
+    COREWEBVIEW2_PERMISSION_KIND kind_raw;
+    LPWSTR uri_raw = nullptr;
+    if (FAILED(args->get_PermissionKind(&kind_raw)) || FAILED(args->get_Uri(&uri_raw)))
+        return args->put_State(COREWEBVIEW2_PERMISSION_STATE_DENY);
+    std::string uri = narrow(uri_raw);
+    CoTaskMemFree(uri_raw);
+
+    permission_state state = permission_state::deny;
+    if (uri == local_url || uri.starts_with(local_url + "/"))
+    {
+        permission kind = kind_raw <= COREWEBVIEW2_PERMISSION_KIND_WINDOW_MANAGEMENT ? static_cast<permission>(kind_raw)
+                                                                                     : permission::unknown;
+        auto it = permissions.find(kind);
+        if (it != permissions.end())
+            state = it->second;
+    }
+
+    switch (state)
+    {
+    case permission_state::allow:
+        return args->put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+    case permission_state::ask:
+        return args->put_State(COREWEBVIEW2_PERMISSION_STATE_DEFAULT);
+    default:
+        return args->put_State(COREWEBVIEW2_PERMISSION_STATE_DENY);
+    }
+}
 } // namespace
 
 namespace easy_webview
 {
 
-webview::webview(const std::string &title, bool debug)
+webview::webview(const std::string &title, bool debug, const std::map<permission, permission_state> &permissions)
 {
     webview_once::initialize();
     auto impl = new webview_impl();
+    impl->permissions = permissions;
     impl->hwnd = CreateWindowExW(0, L"WebView2Window", std::wstring(title.begin(), title.end()).c_str(), WS_OVERLAPPEDWINDOW,
                                  CW_USEDEFAULT, CW_USEDEFAULT, 1200, 800, nullptr, nullptr, GetModuleHandle(nullptr),
                                  std::addressof(impl->webviewController));
@@ -556,6 +593,17 @@ webview::webview(const std::string &title, bool debug)
                                 &token_keys);
 
                             const std::string local_url = "https://app.example";
+
+                            // Decide camera, microphone, etc. from the
+                            // permissions table instead of WebView2's prompt.
+                            EventRegistrationToken token_perm;
+                            impl->webview->add_PermissionRequested(
+                                Callback<ICoreWebView2PermissionRequestedEventHandler>(
+                                    [local_url, impl](ICoreWebView2 *,
+                                                      ICoreWebView2PermissionRequestedEventArgs *args) -> HRESULT
+                                    { return on_permission(local_url, impl->permissions, args); })
+                                    .Get(),
+                                &token_perm);
 
                             ComPtr<ICoreWebView2_2> webview2_2;
                             impl->webview.As(&webview2_2);
