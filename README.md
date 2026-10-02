@@ -31,7 +31,7 @@ const text = await (await fetch("/api/hello/world")).text(); // "Hello, world!"
 - **In-process routing:** requests are handled inside the process through WebView2's `WebResourceRequested` event, so no socket is opened and no port is exposed.
 - **Express-style routes:** `get`, `post`, `put`, `del`, `patch` and `head`, with `:param` segments and `*` wildcards.
 - **Query string and body parsing:** percent-decoded query parameters and the raw request body are passed to each handler.
-- **Static file serving:** content types are set from the file extension, `/` maps to `index.html`, and paths that would leave the static root are rejected.
+- **Static file serving:** from a folder on disk or from files embedded in the executable. Content types are set from the file extension, `/` maps to `index.html`, and paths that would leave the static root are rejected.
 - **Small API:** one header and a single class.
 
 ## Requirements
@@ -93,6 +93,7 @@ Run the executable from the `example` directory so the relative `static` folder 
 | `set_size(int width, int height)` | Sets the window size. |
 | `get / post / put / del / patch / head(pattern, handler)` | Registers a route for that HTTP method. |
 | `serve_static(const std::filesystem::path&)` | Serves files from a directory for `GET`/`HEAD` requests that no route matched. |
+| `serve_static(const std::map<std::string, std::string_view>&)` | Serves in-memory files (for example, assets embedded in the executable) for `GET`/`HEAD` requests that no route matched. Keys are URL paths such as `"/index.html"`. |
 | `run()` | Shows the window, loads `/` and blocks until the window is closed. |
 
 ### Handlers
@@ -123,7 +124,35 @@ struct response {
 | `/users/:id` | `/users/42` | `id = "42"` |
 | `/files/*` | `/files/a/b/c.txt` | `splat = "a/b/c.txt"` |
 
-Routes are checked in the order they were registered, and the first match wins. A request that matches no route goes to the static folder if it is a `GET` or `HEAD`. Anything left over gets a `404`.
+Routes are checked in the order they were registered, and the first match wins. A request that matches no route goes to the static files if it is a `GET` or `HEAD`: the embedded files are checked first, then the static folder. Anything left over gets a `404`.
+
+### Embedded static files
+
+The second `serve_static()` overload takes a map from URL paths to file contents, so the front end can ship inside the executable instead of in a folder next to it:
+
+```cpp
+static const std::map<std::string, std::string_view> files = {
+    {"/index.html", "<!doctype html><h1>Hello</h1>"},
+    {"/app.js", "console.log('hi');"},
+};
+
+w.serve_static(files);   // "/" serves "/index.html"
+```
+
+The map is copied, but the `std::string_view` contents are not, so the data they point to must outlive the window (string literals and static arrays are fine).
+
+To embed a whole directory, use the `easy_webview_embed_dir` CMake helper. It generates a header declaring `extern const std::map<std::string, std::string_view> <name>;`, with one entry per file, and regenerates it when the files change:
+
+```cmake
+include("${easy-webview_SOURCE_DIR}/cmake/embed_dir.cmake")
+easy_webview_embed_dir(my-app my_static "${CMAKE_CURRENT_SOURCE_DIR}/static")
+```
+
+```cpp
+#include "my_static.h"
+
+w.serve_static(my_static);
+```
 
 ## How it works
 
