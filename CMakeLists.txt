@@ -47,11 +47,15 @@ if(EASY_WEBVIEW_BUILD_EXAMPLE)
     target_compile_definitions(easy_webview_example PRIVATE UNICODE _UNICODE)
     target_link_libraries(easy_webview_example PRIVATE easy_webview::easy_webview)
 
-    # Copy the static web assets next to the executable on every build.
-    add_custom_target(easy_webview_example_static
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/example/static"
-            "$<TARGET_FILE_DIR:easy_webview_example>/static"
-        COMMENT "Copying example static files")
-    add_dependencies(easy_webview_example easy_webview_example_static)
+    # Embed the static web assets into the executable (see embedded/example_static.h).
+    include(cmake/embed_dir.cmake)
+    easy_webview_embed_dir(easy_webview_example example_static "${CMAKE_CURRENT_SOURCE_DIR}/example/static")
+
+    # # Copy the static web assets next to the executable on every build.
+    # add_custom_target(easy_webview_example_static
+    #     COMMAND ${CMAKE_COMMAND} -E copy_directory
+    #         "${CMAKE_CURRENT_SOURCE_DIR}/example/static"
+    #         "$<TARGET_FILE_DIR:easy_webview_example>/static"
+    #     COMMENT "Copying example static files")
+    # add_dependencies(easy_webview_example easy_webview_example_static)
 endif()

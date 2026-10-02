@@ -42,6 +42,7 @@ public:
     void patch(const std::string &pattern, handler fn);
     void head(const std::string &pattern, handler fn);
     void serve_static(const std::filesystem::path &root);
+    void serve_static(const std::map<std::string, std::string_view> &files);
 
     void navigate(const std::string &url);
     static void run();

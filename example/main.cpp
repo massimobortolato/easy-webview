@@ -1,4 +1,5 @@
 #include "easy_webview.h"
+#include "example_static.h"
 #include <windows.h>
 
 using easy_webview::handler;
@@ -13,7 +14,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     w.navigate("https://www.duckduckgo.com");
 
     webview w2("WebView2 Example 2");
-    w2.serve_static("static");
+    w2.serve_static(example_static);
     w2.get("/api/data", [](const request &req) { return response{200, "text/plain; charset=utf-8", "Here your data!"}; });
     w2.post("/ciao", [](const request &req) { return response{200, "text/plain; charset=utf-8", "Ciao!"}; });
 

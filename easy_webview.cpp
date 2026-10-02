@@ -284,6 +284,27 @@ std::optional<response> handle_routes(const std::vector<route> &routes, const st
     return std::nullopt;
 }
 
+std::optional<response> handle_static(const std::map<std::string, std::string_view> &static_files, const std::string &method,
+                                      std::string &path, ComPtr<IStream> &content)
+{
+    if (method != "GET" && method != "HEAD")
+        return std::nullopt;
+    if (!static_files.empty())
+    {
+        if (path == "/")
+            path += "index.html";
+
+        auto it = static_files.find(path);
+        if (it != static_files.end())
+        {
+            content = SHCreateMemStream(reinterpret_cast<const BYTE *>(it->second.data()), static_cast<UINT>(it->second.size()));
+            if (content)
+                return response{200, mime_type(path), {}};
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<response> handle_static(const std::filesystem::path &static_root, const std::string &method, std::string &path,
                                       ComPtr<IStream> &content)
 {
@@ -313,7 +334,8 @@ std::optional<response> handle_static(const std::filesystem::path &static_root, 
 }
 
 HRESULT handle_request(ICoreWebView2Environment *env, const std::string &url, const std::vector<route> &routes,
-                       const std::filesystem::path &static_root, ICoreWebView2WebResourceRequestedEventArgs *args)
+                       const std::filesystem::path &static_root, const std::map<std::string, std::string_view> &static_files,
+                       ICoreWebView2WebResourceRequestedEventArgs *args)
 {
     ComPtr<ICoreWebView2WebResourceRequest> request;
     args->get_Request(&request);
@@ -326,7 +348,7 @@ HRESULT handle_request(ICoreWebView2Environment *env, const std::string &url, co
     CoTaskMemFree(uri_raw);
     CoTaskMemFree(method_raw);
 
-    // "http://app.example/a/b.js?x=1#y" -> "/a/b.js"
+    // "https://app.example/a/b.js?x=1#y" -> "/a/b.js"
     std::string path = uri.substr(url.size());
     size_t cut = path.find_first_of("?#");
     std::string query;
@@ -343,6 +365,7 @@ HRESULT handle_request(ICoreWebView2Environment *env, const std::string &url, co
     ComPtr<IStream> body;
     request->get_Content(&body);
     response res = handle_routes(routes, method, path, parse_query(query), read_stream(body.Get()))
+                       .or_else([&] { return handle_static(static_files, method, path, content); })
                        .or_else([&] { return handle_static(static_root, method, path, content); })
                        .value_or(response{404, "text/plain; charset=utf-8", "Not found: " + path});
 
@@ -359,11 +382,12 @@ HRESULT handle_request(ICoreWebView2Environment *env, const std::string &url, co
 }
 
 HRESULT on_request(ICoreWebView2Environment *env, const std::string &url, const std::vector<route> &routes,
-                   const std::filesystem::path &static_root, ICoreWebView2WebResourceRequestedEventArgs *args)
+                   const std::filesystem::path &static_root, const std::map<std::string, std::string_view> &static_files,
+                   ICoreWebView2WebResourceRequestedEventArgs *args)
 {
     try
     {
-        return handle_request(env, url, routes, static_root, args);
+        return handle_request(env, url, routes, static_root, static_files, args);
     }
     catch (const std::exception &e)
     {
@@ -385,6 +409,7 @@ struct webview_impl
     std::wstring url;
     std::vector<route> routes;
     std::filesystem::path static_root;
+    std::map<std::string, std::string_view> static_files;
 };
 
 } // namespace
@@ -462,7 +487,7 @@ webview::webview(const std::string &title)
                                     .Get(),
                                 &token);
 
-                            const std::string local_url = "http://app.example";
+                            const std::string local_url = "https://app.example";
 
                             ComPtr<ICoreWebView2_2> webview2_2;
                             impl->webview.As(&webview2_2);
@@ -475,7 +500,10 @@ webview::webview(const std::string &title)
                                 Callback<ICoreWebView2WebResourceRequestedEventHandler>(
                                     [env, local_url, impl](ICoreWebView2 *,
                                                            ICoreWebView2WebResourceRequestedEventArgs *args) -> HRESULT
-                                    { return on_request(env.Get(), local_url, impl->routes, impl->static_root, args); })
+                                    {
+                                        return on_request(env.Get(), local_url, impl->routes, impl->static_root,
+                                                          impl->static_files, args);
+                                    })
                                     .Get(),
                                 &token_local);
 
@@ -567,6 +595,11 @@ void webview::head(const std::string &pattern, handler fn)
 void webview::serve_static(const std::filesystem::path &root)
 {
     reinterpret_cast<webview_impl *>(_impl)->static_root = std::filesystem::weakly_canonical(root);
+}
+
+void webview::serve_static(const std::map<std::string, std::string_view> &files)
+{
+    reinterpret_cast<webview_impl *>(_impl)->static_files = files;
 }
 
 void webview::run() { webview_once::run(); }
