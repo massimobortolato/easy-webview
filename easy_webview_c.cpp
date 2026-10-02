@@ -44,10 +44,12 @@ int at(const std::map<std::string, std::string> &m, size_t index, const char **k
 extern "C"
 {
 
-ew_webview *ew_create(const char *title)
+ew_webview *ew_create(const char *title) { return ew_create_debug(title, 0); }
+
+ew_webview *ew_create_debug(const char *title, int debug)
 {
     // Heap-allocated: easy_webview::webview registers its own address and must not move.
-    return reinterpret_cast<ew_webview *>(new easy_webview::webview(str(title)));
+    return reinterpret_cast<ew_webview *>(new easy_webview::webview(str(title), debug != 0));
 }
 
 void ew_destroy(ew_webview *w) { delete cpp(w); }

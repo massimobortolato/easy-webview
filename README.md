@@ -87,6 +87,22 @@ Run the executable from the `example` directory so the relative `static` folder 
 
 ### `easy_webview::webview`
 
+```cpp
+webview(const std::string &title, bool debug = false);
+```
+
+Creates the window with the given title. The `debug` flag controls the WebView2 developer tools. When it is `false` (the default), the developer tools are disabled, so F12, Ctrl+Shift+I and the "Inspect" context menu entry do nothing. Pass `true` during development to turn them on:
+
+```cpp
+easy_webview::webview w("Hello", true);   // developer tools enabled
+```
+
+From the C API, use `ew_create_debug(title, debug)`, where a nonzero `debug` enables the developer tools. `ew_create(title)` keeps them disabled:
+
+```c
+ew_webview *w = ew_create_debug("Hello", 1);   // developer tools enabled
+```
+
 | Method | Description |
 | --- | --- |
 | `set_title(const std::string&)` | Sets the window title. |

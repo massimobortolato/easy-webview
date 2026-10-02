@@ -24,6 +24,8 @@ typedef void (*ew_handler)(const ew_request *req, ew_response *res, void *user_d
 
 // --- Window ----------------------------------------------------------------
 ew_webview *ew_create(const char *title);
+// Like ew_create(); a nonzero debug enables the WebView2 developer tools.
+ew_webview *ew_create_debug(const char *title, int debug);
 void ew_destroy(ew_webview *w);
 
 void ew_set_size(ew_webview *w, int width, int height);

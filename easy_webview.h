@@ -27,7 +27,7 @@ using handler = std::function<response(const request &)>;
 
 struct webview
 {
-    webview(const std::string &title);
+    webview(const std::string &title, bool debug = false);
     ~webview();
 
     void set_size(int width, int height);

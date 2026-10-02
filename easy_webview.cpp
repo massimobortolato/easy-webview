@@ -431,7 +431,7 @@ HRESULT on_request(ICoreWebView2Environment *env, const std::string &url, const 
 namespace easy_webview
 {
 
-webview::webview(const std::string &title)
+webview::webview(const std::string &title, bool debug)
 {
     webview_once::initialize();
     auto impl = new webview_impl();
@@ -447,7 +447,7 @@ webview::webview(const std::string &title)
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr, nullptr, nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [impl](HRESULT result, ICoreWebView2Environment *env) -> HRESULT
+            [impl, debug](HRESULT result, ICoreWebView2Environment *env) -> HRESULT
             {
                 if (FAILED(result))
                 {
@@ -457,7 +457,7 @@ webview::webview(const std::string &title)
                 HRESULT hr = env->CreateCoreWebView2Controller(
                     impl->hwnd,
                     Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                        [impl](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT
+                        [impl, debug](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT
                         {
                             if (FAILED(result) || !controller)
                             {
@@ -472,10 +472,13 @@ webview::webview(const std::string &title)
                             impl->webviewController->put_Bounds(bounds);
 
                             // Hide the status bar that shows link URLs on
-                            // hover.
+                            // hover, and disable the developer tools.
                             ComPtr<ICoreWebView2Settings> settings;
                             if (SUCCEEDED(impl->webview->get_Settings(&settings)))
+                            {
                                 settings->put_IsStatusBarEnabled(FALSE);
+                                settings->put_AreDevToolsEnabled(debug ? TRUE : FALSE);
+                            }
 
                             // Open links that request a new window in this
                             // window instead.
