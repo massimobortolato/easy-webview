@@ -29,7 +29,7 @@ else()
 endif()
 
 # --- Library ------------------------------------------------------------------
-add_library(easy_webview STATIC easy_webview.cpp easy_webview.h)
+add_library(easy_webview STATIC easy_webview.cpp easy_webview.h easy_webview_c.cpp easy_webview_c.h)
 add_library(easy_webview::easy_webview ALIAS easy_webview)
 target_compile_definitions(easy_webview PRIVATE UNICODE _UNICODE)
 target_include_directories(easy_webview
