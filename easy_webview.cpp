@@ -67,7 +67,35 @@ struct webview_impl
     std::vector<route> routes;
     std::filesystem::path static_root;
     std::map<std::string, std::string_view> static_files;
+    bool fullscreen = false;
+    WINDOWPLACEMENT saved_placement = {sizeof(WINDOWPLACEMENT)};
 };
+
+// Switch between a borderless window covering the whole monitor and the
+// window's previous placement.
+static void toggle_fullscreen(webview_impl *impl)
+{
+    HWND hwnd = impl->hwnd;
+    LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    if (!impl->fullscreen)
+    {
+        MONITORINFO mi = {sizeof(mi)};
+        if (!GetWindowPlacement(hwnd, &impl->saved_placement) ||
+            !GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi))
+            return;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
+        SetWindowPos(hwnd, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right - mi.rcMonitor.left,
+                     mi.rcMonitor.bottom - mi.rcMonitor.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+    else
+    {
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(hwnd, &impl->saved_placement);
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+    impl->fullscreen = !impl->fullscreen;
+}
 
 class webview_once
 {
@@ -498,6 +526,34 @@ webview::webview(const std::string &title, bool debug)
                                     })
                                     .Get(),
                                 &token);
+
+                            // Toggle fullscreen on F11. Keystrokes go to the
+                            // WebView2 child window, so the host WndProc never
+                            // sees them; catch them on the controller instead.
+                            EventRegistrationToken token_keys;
+                            impl->webviewController->add_AcceleratorKeyPressed(
+                                Callback<ICoreWebView2AcceleratorKeyPressedEventHandler>(
+                                    [impl](ICoreWebView2Controller *,
+                                           ICoreWebView2AcceleratorKeyPressedEventArgs *args) -> HRESULT
+                                    {
+                                        COREWEBVIEW2_KEY_EVENT_KIND kind;
+                                        UINT key;
+                                        COREWEBVIEW2_PHYSICAL_KEY_STATUS status;
+                                        if (SUCCEEDED(args->get_KeyEventKind(&kind)) &&
+                                            SUCCEEDED(args->get_VirtualKey(&key)) &&
+                                            SUCCEEDED(args->get_PhysicalKeyStatus(&status)) &&
+                                            (kind == COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN ||
+                                             kind == COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN) &&
+                                            key == VK_F11)
+                                        {
+                                            args->put_Handled(TRUE);
+                                            if (!status.WasKeyDown)
+                                                toggle_fullscreen(impl);
+                                        }
+                                        return S_OK;
+                                    })
+                                    .Get(),
+                                &token_keys);
 
                             const std::string local_url = "https://app.example";
 
