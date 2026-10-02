@@ -25,11 +25,8 @@ struct request
 
 using handler = std::function<response(const request &)>;
 
-class webview
+struct webview
 {
-    void *_impl;
-
-public:
     webview(const std::string &title);
     ~webview();
 

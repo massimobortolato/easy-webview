@@ -58,8 +58,21 @@ struct route
     }
 };
 
+struct webview_impl
+{
+    ComPtr<ICoreWebView2Controller> webviewController;
+    ComPtr<ICoreWebView2> webview;
+    HWND hwnd;
+    std::wstring url;
+    std::vector<route> routes;
+    std::filesystem::path static_root;
+    std::map<std::string, std::string_view> static_files;
+};
+
 class webview_once
 {
+    friend LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
     webview_once()
     {
         if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
@@ -75,15 +88,9 @@ class webview_once
     ~webview_once() { CoUninitialize(); }
 
     std::list<HWND> _handles;
-
-public:
-    static webview_once &instance()
-    {
-        static webview_once instance;
-        return instance;
-    }
+    std::map<webview *, webview_impl *> _webviews;
     static void register_handle(HWND hwnd) { instance()._handles.push_back(hwnd); }
-    static void remove_handle(HWND hwnd)
+    static void unregister_handle(HWND hwnd)
     {
         auto &handles = instance()._handles;
         auto it = std::find(handles.begin(), handles.end(), hwnd);
@@ -93,6 +100,25 @@ public:
         }
     }
     static bool has_handles() { return !instance()._handles.empty(); }
+    static webview_once &instance()
+    {
+        static webview_once wo;
+        return wo;
+    }
+
+public:
+    static void initialize() { instance(); }
+    static webview_impl *get_webview_impl(webview *w)
+    {
+        auto it = instance()._webviews.find(w);
+        return it != instance()._webviews.end() ? it->second : nullptr;
+    }
+    static void register_webview(webview *w, webview_impl *impl)
+    {
+        instance()._webviews[w] = impl;
+        register_handle(impl->hwnd);
+    }
+    static void unregister_webview(webview *w) { instance()._webviews.erase(w); }
     static void run()
     {
         MSG msg;
@@ -131,7 +157,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         return 0;
     case WM_DESTROY:
-        webview_once::remove_handle(hwnd);
+        webview_once::unregister_handle(hwnd);
         if (!webview_once::has_handles())
             PostQuitMessage(0);
         return 0;
@@ -400,18 +426,6 @@ HRESULT on_request(ICoreWebView2Environment *env, const std::string &url, const 
         return E_FAIL;
     }
 }
-
-struct webview_impl
-{
-    ComPtr<ICoreWebView2Controller> webviewController;
-    ComPtr<ICoreWebView2> webview;
-    HWND hwnd;
-    std::wstring url;
-    std::vector<route> routes;
-    std::filesystem::path static_root;
-    std::map<std::string, std::string_view> static_files;
-};
-
 } // namespace
 
 namespace easy_webview
@@ -419,11 +433,8 @@ namespace easy_webview
 
 webview::webview(const std::string &title)
 {
-    webview_once::instance();
-
+    webview_once::initialize();
     auto impl = new webview_impl();
-    _impl = impl;
-
     impl->hwnd = CreateWindowExW(0, L"WebView2Window", std::wstring(title.begin(), title.end()).c_str(), WS_OVERLAPPEDWINDOW,
                                  CW_USEDEFAULT, CW_USEDEFAULT, 1200, 800, nullptr, nullptr, GetModuleHandle(nullptr),
                                  std::addressof(impl->webviewController));
@@ -432,8 +443,6 @@ webview::webview(const std::string &title)
         return;
     ShowWindow(impl->hwnd, SW_SHOW);
     UpdateWindow(impl->hwnd);
-
-    webview_once::register_handle(impl->hwnd);
 
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
         nullptr, nullptr, nullptr,
@@ -529,19 +538,22 @@ webview::webview(const std::string &title)
                     L"Error", MB_ICONERROR);
         return;
     }
+
+    webview_once::register_webview(this, impl);
 }
 
 webview::~webview()
 {
-    auto impl = reinterpret_cast<webview_impl *>(this->_impl);
+    auto impl = webview_once::get_webview_impl(this);
     impl->webview.Reset();
     impl->webviewController.Reset();
     delete impl;
+    webview_once::unregister_webview(this);
 }
 
 void webview::set_size(int width, int height)
 {
-    auto impl = reinterpret_cast<webview_impl *>(this->_impl);
+    auto impl = webview_once::get_webview_impl(this);
     SetWindowPos(impl->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
 
     UpdateWindow(impl->hwnd);
@@ -550,7 +562,7 @@ void webview::set_size(int width, int height)
 void webview::navigate(const std::string &url)
 {
 
-    auto impl = reinterpret_cast<webview_impl *>(this->_impl);
+    auto impl = webview_once::get_webview_impl(this);
     std::wstring wurl = std::wstring(url.begin(), url.end());
     if (impl->webview)
     {
@@ -564,42 +576,42 @@ void webview::navigate(const std::string &url)
 
 void webview::get(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"GET", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"GET", split_path(pattern), std::move(fn)});
 }
 
 void webview::post(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"POST", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"POST", split_path(pattern), std::move(fn)});
 }
 
 void webview::put(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"PUT", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"PUT", split_path(pattern), std::move(fn)});
 }
 
 void webview::del(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"DELETE", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"DELETE", split_path(pattern), std::move(fn)});
 }
 
 void webview::patch(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"PATCH", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"PATCH", split_path(pattern), std::move(fn)});
 }
 
 void webview::head(const std::string &pattern, handler fn)
 {
-    reinterpret_cast<webview_impl *>(_impl)->routes.push_back({"HEAD", split_path(pattern), std::move(fn)});
+    webview_once::get_webview_impl(this)->routes.push_back({"HEAD", split_path(pattern), std::move(fn)});
 }
 
 void webview::serve_static(const std::filesystem::path &root)
 {
-    reinterpret_cast<webview_impl *>(_impl)->static_root = std::filesystem::weakly_canonical(root);
+    webview_once::get_webview_impl(this)->static_root = std::filesystem::weakly_canonical(root);
 }
 
 void webview::serve_static(const std::map<std::string, std::string_view> &files)
 {
-    reinterpret_cast<webview_impl *>(_impl)->static_files = files;
+    webview_once::get_webview_impl(this)->static_files = files;
 }
 
 void webview::run() { webview_once::run(); }
